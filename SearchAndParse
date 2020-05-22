@@ -1,0 +1,48 @@
+  string SearchGoogle(string term)
+  {
+      using (var web = new WebClient())
+      {
+          web.QueryString.Add("q", term);
+          var html = web.DownloadString("http://www.google.com/search");
+          return html;
+      }
+  }
+
+  SearchResult[] ParseHtml(string html)
+  {
+      var doc = new HtmlDocument();
+      doc.LoadHtml(html);
+
+      //Example With LINQ 
+      // https://html-agility-pack.net/
+      var result = doc.DocumentNode.Descendants("div")
+          .Where(t =>
+          {
+              if (!t.ChildNodes.Any() || t.FirstChild.Name != "div" || t.ChildNodes.Count != 3)
+              {
+                  return false;
+              }
+
+              var firstDiv = t.FirstChild.ChildNodes;
+              return firstDiv.First().Name == "a";
+          })
+          .Select(t =>
+          {
+              var url = t.FirstChild.FirstChild.Attributes["href"].Value.Split('=')[1].Split(new []{"&amp"},StringSplitOptions.None)[0];
+
+              var spans = t.FirstChild.FirstChild.Descendants("span").ToArray();
+
+              var title = spans[0].InnerText;
+
+              var desc = t.LastChild.Descendants("span").ToArray().FirstOrDefault()?.InnerText ??"";
+
+              return new SearchResult
+              {
+                  Title = title,
+                  Url = url,
+                  Desc = desc
+              };
+          }).ToArray();
+
+      return result;
+  }
